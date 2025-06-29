@@ -1,6 +1,12 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # Only show fatal errors
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN optimizations
+from download_model import *
+# Only download model if it doesn't exist
+if not os.path.exists("efficientnet_checkpoint.keras"):
+    print("📦 Downloading model...")
+    import download_model
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 from flask import Flask, render_template, request
 import tensorflow as tf
@@ -9,25 +15,27 @@ from PIL import Image
 import gdown
 
 app = Flask(__name__)
-
-# ✅ Set upload folder
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ Google Drive file ID of your model
-MODEL_FILE_ID = 'YOUR_FILE_ID_HERE'  # <-- Replace with your Drive file ID
-MODEL_PATH = 'efficientnet_checkpoint.keras'
-
-# ✅ Download model from Google Drive if not present
+MODEL_PATH = "efficientnet_checkpoint.keras"
 if not os.path.exists(MODEL_PATH):
-    url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
+    file_id = "1e0xmtz08OXyHWf5fjQbJSgxE_ABfE_G6"
+    url = f"https://drive.google.com/uc?id={file_id}"
     gdown.download(url, MODEL_PATH, quiet=False)
+import gdown
+
+# ✅ Download the model from Google Drive
+model_path = "efficientnet_checkpoint.keras"
+if not os.path.exists(model_path):
+    url = "https://drive.google.com/uc?id=1e0xmtz08OXyHWf5fjQbJSgxE_ABfE_G6"
+    gdown.download(url, model_path, quiet=False)
 
 # ✅ Load the model
-model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+model = tf.keras.models.load_model(model_path, compile=False)
 
-# ✅ Class labels (38 classes from PlantVillage dataset)
+
 class_names = [
     "Apple Scab", "Apple Black Rot", "Apple Cedar Rust", "Apple Healthy",
     "Blueberry Healthy", "Cherry Powdery Mildew", "Cherry Healthy",
@@ -43,13 +51,11 @@ class_names = [
     "Tomato Mosaic Virus", "Tomato Yellow Leaf Curl Virus", "Tomato Healthy"
 ]
 
-# ✅ Image preprocessing
 def preprocess_image(image_path):
     img = Image.open(image_path).convert('RGB').resize((224, 224))
     img = np.array(img) / 255.0
     return np.expand_dims(img, axis=0)
 
-# ✅ Main route
 @app.route('/', methods=['GET', 'POST'])
 def index():
     prediction = None
@@ -67,10 +73,10 @@ def index():
             predicted_class = int(np.argmax(pred))
             label = class_names[predicted_class]
             confidence = float(np.max(pred))
+
             prediction = label
 
     return render_template('index.html', prediction=prediction, confidence=confidence, image_filename=image_filename)
 
-# ✅ Required to run on Render
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
