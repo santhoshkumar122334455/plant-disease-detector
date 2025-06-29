@@ -6,20 +6,28 @@ from flask import Flask, render_template, request
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+import gdown
 
 app = Flask(__name__)
 
 # ✅ Set upload folder
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# ✅ Create the folder if it doesn't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ✅ Load your trained model
-model = tf.keras.models.load_model('efficientnet_checkpoint.keras', compile=False)
+# ✅ Google Drive file ID of your model
+MODEL_FILE_ID = 'YOUR_FILE_ID_HERE'  # <-- Replace with your Drive file ID
+MODEL_PATH = 'efficientnet_checkpoint.keras'
 
-# ✅ Class labels (38 classes - from Kaggle Plant Village dataset)
+# ✅ Download model from Google Drive if not present
+if not os.path.exists(MODEL_PATH):
+    url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
+# ✅ Load the model
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+
+# ✅ Class labels (38 classes from PlantVillage dataset)
 class_names = [
     "Apple Scab", "Apple Black Rot", "Apple Cedar Rust", "Apple Healthy",
     "Blueberry Healthy", "Cherry Powdery Mildew", "Cherry Healthy",
@@ -35,7 +43,7 @@ class_names = [
     "Tomato Mosaic Virus", "Tomato Yellow Leaf Curl Virus", "Tomato Healthy"
 ]
 
-# ✅ Preprocess function
+# ✅ Image preprocessing
 def preprocess_image(image_path):
     img = Image.open(image_path).convert('RGB').resize((224, 224))
     img = np.array(img) / 255.0
@@ -51,21 +59,18 @@ def index():
     if request.method == 'POST':
         file = request.files['image']
         if file:
-            # Save image
             image_filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(image_filename)
 
-            # Preprocess & Predict
             img = preprocess_image(image_filename)
             pred = model.predict(img)
             predicted_class = int(np.argmax(pred))
             label = class_names[predicted_class]
             confidence = float(np.max(pred))
-
             prediction = label
 
     return render_template('index.html', prediction=prediction, confidence=confidence, image_filename=image_filename)
 
-# ✅ Fix: ensure app runs when executed
+# ✅ Required to run on Render
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=10000)
