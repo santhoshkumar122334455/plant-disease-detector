@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Plant Disease Predictor</title>
+</head>
+<body style="font-family: Arial; text-align: center; margin-top: 50px;">
+    <h1>Plant Disease Prediction App</h1>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="image" required><br><br>
+        <input type="submit" value="Predict">
+    </form>
+
+    {% if prediction %}
+        <h2>Prediction Result:</h2>
+        <p><strong>Disease:</strong> {{ prediction }}</p>
+        <p><strong>Confidence:</strong> {{ confidence | round(2) }}</p>
+
+        {% if image_filename %}
+            <h3>Uploaded Image:</h3>
+            <img src="{{ image_filename }}" alt="Uploaded Leaf" width="300">
+        {% endif %}
+    {% endif %}
+</body>
+</html>
