@@ -1,10 +1,6 @@
 import os
-from download_model import *
-# Only download model if it doesn't exist
-if not os.path.exists("efficientnet_checkpoint.keras"):
-    print("📦 Downloading model...")
-    import download_model
 
+# Set TensorFlow environment variables before importing
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
@@ -12,29 +8,20 @@ from flask import Flask, render_template, request
 import tensorflow as tf
 import numpy as np
 from PIL import Image
-import gdown
 
 app = Flask(__name__)
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Load the model (should already be downloaded during build)
 MODEL_PATH = "efficientnet_checkpoint.keras"
 if not os.path.exists(MODEL_PATH):
-    file_id = "1e0xmtz08OXyHWf5fjQbJSgxE_ABfE_G6"
-    url = f"https://drive.google.com/uc?id={file_id}"
-    gdown.download(url, MODEL_PATH, quiet=False)
-import gdown
+    raise FileNotFoundError(f"Model file {MODEL_PATH} not found! Make sure it was downloaded during build.")
 
-# ✅ Download the model from Google Drive
-model_path = "efficientnet_checkpoint.keras"
-if not os.path.exists(model_path):
-    url = "https://drive.google.com/uc?id=1e0xmtz08OXyHWf5fjQbJSgxE_ABfE_G6"
-    gdown.download(url, model_path, quiet=False)
-
-# ✅ Load the model
-model = tf.keras.models.load_model(model_path, compile=False)
-
+print("🤖 Loading EfficientNet model...")
+model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+print("✅ Model loaded successfully!")
 
 class_names = [
     "Apple Scab", "Apple Black Rot", "Apple Cedar Rust", "Apple Healthy",
@@ -52,6 +39,7 @@ class_names = [
 ]
 
 def preprocess_image(image_path):
+    """Preprocess image for model prediction"""
     img = Image.open(image_path).convert('RGB').resize((224, 224))
     img = np.array(img) / 255.0
     return np.expand_dims(img, axis=0)
@@ -64,19 +52,30 @@ def index():
 
     if request.method == 'POST':
         file = request.files['image']
-        if file:
+        if file and file.filename:
             image_filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(image_filename)
 
-            img = preprocess_image(image_filename)
-            pred = model.predict(img)
-            predicted_class = int(np.argmax(pred))
-            label = class_names[predicted_class]
-            confidence = float(np.max(pred))
+            try:
+                img = preprocess_image(image_filename)
+                pred = model.predict(img)
+                predicted_class = int(np.argmax(pred))
+                label = class_names[predicted_class]
+                confidence = float(np.max(pred))
+                prediction = label
+            except Exception as e:
+                print(f"Error during prediction: {e}")
+                prediction = "Error processing image"
+                confidence = 0.0
 
-            prediction = label
-
-    return render_template('index.html', prediction=prediction, confidence=confidence, image_filename=image_filename)
+    return render_template('index.html', 
+                         prediction=prediction, 
+                         confidence=confidence, 
+                         image_filename=image_filename)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+    # For local development
+    app.run(host='0.0.0.0', port=5000, debug=True)
+else:
+    # For production (Render will use gunicorn)
+    pass

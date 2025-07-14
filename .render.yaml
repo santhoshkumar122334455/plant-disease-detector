@@ -2,8 +2,8 @@ services:
   - type: web
     name: efficientnet-webapp
     env: python
-    buildCommand: ""
-    startCommand: gunicorn app:app
+    buildCommand: "python download_model.py"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: 3.10
